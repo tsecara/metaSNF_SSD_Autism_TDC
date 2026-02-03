@@ -7,8 +7,8 @@ This repository contains code and data used in the analyses for the manuscript t
 In order:
 - **Data Prep** – Preparation of data for main analysis; neuroCombat to remove scanner effects. 
 - **SNF/metaSNF Analysis** – Primary analysis involving main multimodal data integration steps to produce clusters.
-- **Cluster Comparison** – Statistical comparison of input features and out-of-model features (for cluster valdaition) acorss clusters (and diagnostic reference groups).
-- **Stability Testing** – Bootstrap resampling and visuaization of clustering stability and agreement. 
+- **Cluster Comparison** – Statistical comparison of input features and out-of-model features (for cluster validation) acorss clusters (and diagnostic reference groups).
+- **Stability Testing** – Bootstrap resampling and visualization of clustering stability and agreement. 
 
 This repository uses and builds off of code from previous studies:
 
