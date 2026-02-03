@@ -1,0 +1,1165 @@
+---
+title: "NMI_Ranking"
+author: "Maria Secara"
+date: "08/10/2025"
+output: html_document
+---
+Load necessary packages
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+Load data
+```{r}
+train_nmi <- read.csv(".../SPINS_output1/full_INPUTS_all_scores_5_clust_k48_0.6_1000perms_transposed.csv")
+
+# rename first column
+names(train_nmi)[1] <- "Feature"
+
+#Adding a rank column
+train_nmi <- train_nmi %>%
+  mutate(Rank = min_rank(desc(NMI))) %>%   # highest NMI -> rank 1
+  arrange(Rank, desc(NMI))      
+
+```
+
+1. Social Cognition
+```{r}
+# vector of strings to match
+cog_tests <- c("rmet_total", 
+                   "er40_total", 
+                   "tasit1_total", 
+                   "tasit2_sin", 
+                   "tasit2_ssar", 
+                   "tasit2_psar", 
+                   "tasit3_lies", 
+                   "tasit3_sar")
+
+#filter for cognitive tests, order by Rank
+train_cog <- train_nmi %>%
+  filter(Feature %in% cog_tests) %>%
+  arrange(Rank)
+
+#Replace feature names with readable labels
+cog_labels <- c(
+  "rmet_total" = "RMET Total",
+  "er40_total" = "ER Total",
+  "tasit1_total" = "TASIT1 Total",
+  "tasit2_sin" = "TASIT2 Sincere",
+  "tasit2_ssar" = "TASIT2 Simple Sarcasm",
+  "tasit2_psar" = "TASIT2 Paradoxical Sarcasm",
+  "tasit3_lies" = "TASIT3 Lies",
+  "tasit3_sar" = "TASIT3 Sarcasm"
+)
+
+replace_cog_labels <- function(vec, replacements) {
+  for (abbr in names(replacements)) {
+    vec <- gsub(paste0("^", abbr, "$"), replacements[[abbr]], vec)
+  }
+  return(vec)
+}
+train_cog$Feature <- replace_cog_labels(train_cog$Feature, cog_labels)
+
+# Plot with facet
+ggplot(train_cog, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1,194),
+    guide = guide_colorbar(reverse = TRUE)  # Optional: reverse so low rank = darker
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.10),
+    breaks = seq(0, 0.10, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+  #facet_wrap(~ Sample, nrow = 1, scales = "fixed") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+```
+
+Rearganging by rank
+```{r}
+# vector of strings to match
+cog_tests <- c(
+  "rmet_total", 
+  "er40_total", 
+  "tasit1_total", 
+  "tasit2_sin", 
+  "tasit2_ssar", 
+  "tasit2_psar", 
+  "tasit3_lies", 
+  "tasit3_sar"
+)
+
+# filter + order by *ascending* rank (best first)
+train_cog <- train_nmi %>%
+  filter(Feature %in% cog_tests) %>%
+  arrange(Rank)   # <= this is the key change
+
+# readable labels
+cog_labels <- c(
+  "rmet_total"   = "RMET Total",
+  "er40_total"   = "ER Total",
+  "tasit1_total" = "TASIT1 Total",
+  "tasit2_sin"   = "TASIT2 Sincere",
+  "tasit2_ssar"  = "TASIT2 Simple Sarcasm",
+  "tasit2_psar"  = "TASIT2 Paradoxical Sarcasm",
+  "tasit3_lies"  = "TASIT3 Lies",
+  "tasit3_sar"   = "TASIT3 Sarcasm"
+)
+
+train_cog <- train_cog %>%
+  mutate(
+    Feature = cog_labels[Feature],
+    # lock the x-axis in THIS order (best rank -> worst rank)
+    Feature = factor(Feature, levels = Feature)
+  )
+
+ggplot(train_cog, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.10),
+    breaks = seq(0, 0.10, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Cognitive Feature",
+    title = "Cognitive Features (Best → Worst Rank)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title  = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+2. Cortical thickness
+```{r}
+train_ct <- train_nmi %>%
+  filter(grepl("thickavg", Feature)) %>%
+  arrange(Rank)
+
+train_ct <- train_ct %>%
+  arrange(Rank) %>%
+  mutate(Feature = str_remove(Feature, "_thickavg"),
+         Feature = str_replace(Feature, "^L_", "lh_"),
+         Feature = str_replace(Feature, "^R_", "rh_"))
+
+# Patterns (DK atlas abbreviations) and replacements (full names)
+patterns <- c("lh_bankssts", "lh_caudalanteriorcingulate", "lh_caudalmiddlefrontal", 
+              "lh_cuneus", "lh_entorhinal", "lh_fusiform", "lh_inferiorparietal", 
+              "lh_inferiortemporal", "lh_isthmuscingulate", "lh_lateraloccipital", 
+              "lh_lateralorbitofrontal", "lh_lingual", "lh_medialorbitofrontal", 
+              "lh_middletemporal", "lh_parahippocampal", "lh_paracentral", 
+              "lh_parsopercularis", "lh_parsorbitalis", "lh_parstriangularis", 
+              "lh_pericalcarine", "lh_postcentral", "lh_posteriorcingulate", 
+              "lh_precentral", "lh_precuneus", "lh_rostralanteriorcingulate", 
+              "lh_rostralmiddlefrontal", "lh_superiorfrontal", "lh_superiorparietal", 
+              "lh_superiortemporal", "lh_supramarginal", "lh_frontalpole", 
+              "lh_temporalpole", "lh_transversetemporal", "lh_insula",
+
+              "rh_bankssts", "rh_caudalanteriorcingulate", "rh_caudalmiddlefrontal", 
+              "rh_cuneus", "rh_entorhinal", "rh_fusiform", "rh_inferiorparietal", 
+              "rh_inferiortemporal", "rh_isthmuscingulate", "rh_lateraloccipital", 
+              "rh_lateralorbitofrontal", "rh_lingual", "rh_medialorbitofrontal", 
+              "rh_middletemporal", "rh_parahippocampal", "rh_paracentral", 
+              "rh_parsopercularis", "rh_parsorbitalis", "rh_parstriangularis", 
+              "rh_pericalcarine", "rh_postcentral", "rh_posteriorcingulate", 
+              "rh_precentral", "rh_precuneus", "rh_rostralanteriorcingulate", 
+              "rh_rostralmiddlefrontal", "rh_superiorfrontal", "rh_superiorparietal", 
+              "rh_superiortemporal", "rh_supramarginal", "rh_frontalpole", 
+              "rh_temporalpole", "rh_transversetemporal", "rh_insula")
+
+replacements <- c("Left Bankssts", "Left Caudal Anterior Cingulate", "Left Caudal Middle Frontal",
+                  "Left Cuneus", "Left Entorhinal", "Left Fusiform", "Left Inferior Parietal",
+                  "Left Inferior Temporal", "Left Isthmus Cingulate", "Left Lateral Occipital",
+                  "Left Lateral Orbitofrontal", "Left Lingual", "Left Medial Orbitofrontal",
+                  "Left Middle Temporal", "Left Parahippocampal", "Left Paracentral",
+                  "Left Parsopercularis", "Left Parsorbitalis", "Left Parstriangularis",
+                  "Left Pericalcarine", "Left Postcentral", "Left Posterior Cingulate",
+                  "Left Precentral", "Left Precuneus", "Left Rostral Anterior Cingulate",
+                  "Left Rostral Middle Frontal", "Left Superior Frontal", "Left Superior Parietal",
+                  "Left Superior Temporal", "Left Supramarginal", "Left Frontal Pole",
+                  "Left Temporal Pole", "Left Transverse Temporal", "Left Insula",
+
+                  "Right Bankssts", "Right Caudal Anterior Cingulate", "Right Caudal Middle Frontal",
+                  "Right Cuneus", "Right Entorhinal", "Right Fusiform", "Right Inferior Parietal",
+                  "Right Inferior Temporal", "Right Isthmus Cingulate", "Right Lateral Occipital",
+                  "Right Lateral Orbitofrontal", "Right Lingual", "Right Medial Orbitofrontal",
+                  "Right Middle Temporal", "Right Parahippocampal", "Right Paracentral",
+                  "Right Parsopercularis", "Right Parsorbitalis", "Right Parstriangularis",
+                  "Right Pericalcarine", "Right Postcentral", "Right Posterior Cingulate",
+                  "Right Precentral", "Right Precuneus", "Right Rostral Anterior Cingulate",
+                  "Right Rostral Middle Frontal", "Right Superior Frontal", "Right Superior Parietal",
+                  "Right Superior Temporal", "Right Supramarginal", "Right Frontal Pole",
+                  "Right Temporal Pole", "Right Transverse Temporal", "Right Insula")
+
+
+# Function to replace labels
+# Replace
+for (i in seq_along(patterns)) {
+  train_ct$Feature <- str_replace(train_ct$Feature, patterns[i], replacements[i])
+}
+
+# Plot with facet
+ggplot(train_ct, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1,194),
+    guide = guide_colorbar(reverse = TRUE)  # Optional: reverse so low rank = darker
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.12),
+    breaks = seq(0, 0.12, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+#  facet_wrap(~ Sample, nrow = 1, scales = "fixed") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 8),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+```
+
+Cortical Thickness plot in descending order 
+```{r}
+# --- Cortical Thickness (descending order by NMI) ---
+train_ct <- train_nmi %>%
+  filter(grepl("thickavg", Feature)) %>%
+  arrange(desc(NMI))  # descending order (best first)
+
+train_ct <- train_ct %>%
+  mutate(
+    Feature = str_remove(Feature, "_thickavg"),
+    Feature = str_replace(Feature, "^L_", "lh_"),
+    Feature = str_replace(Feature, "^R_", "rh_")
+  )
+
+# --- DK atlas replacements ---
+patterns <- c(
+  "lh_bankssts", "lh_caudalanteriorcingulate", "lh_caudalmiddlefrontal",
+  "lh_cuneus", "lh_entorhinal", "lh_fusiform", "lh_inferiorparietal",
+  "lh_inferiortemporal", "lh_isthmuscingulate", "lh_lateraloccipital",
+  "lh_lateralorbitofrontal", "lh_lingual", "lh_medialorbitofrontal",
+  "lh_middletemporal", "lh_parahippocampal", "lh_paracentral",
+  "lh_parsopercularis", "lh_parsorbitalis", "lh_parstriangularis",
+  "lh_pericalcarine", "lh_postcentral", "lh_posteriorcingulate",
+  "lh_precentral", "lh_precuneus", "lh_rostralanteriorcingulate",
+  "lh_rostralmiddlefrontal", "lh_superiorfrontal", "lh_superiorparietal",
+  "lh_superiortemporal", "lh_supramarginal", "lh_frontalpole",
+  "lh_temporalpole", "lh_transversetemporal", "lh_insula",
+
+  "rh_bankssts", "rh_caudalanteriorcingulate", "rh_caudalmiddlefrontal",
+  "rh_cuneus", "rh_entorhinal", "rh_fusiform", "rh_inferiorparietal",
+  "rh_inferiortemporal", "rh_isthmuscingulate", "rh_lateraloccipital",
+  "rh_lateralorbitofrontal", "rh_lingual", "rh_medialorbitofrontal",
+  "rh_middletemporal", "rh_parahippocampal", "rh_paracentral",
+  "rh_parsopercularis", "rh_parsorbitalis", "rh_parstriangularis",
+  "rh_pericalcarine", "rh_postcentral", "rh_posteriorcingulate",
+  "rh_precentral", "rh_precuneus", "rh_rostralanteriorcingulate",
+  "rh_rostralmiddlefrontal", "rh_superiorfrontal", "rh_superiorparietal",
+  "rh_superiortemporal", "rh_supramarginal", "rh_frontalpole",
+  "rh_temporalpole", "rh_transversetemporal", "rh_insula"
+)
+
+replacements <- c(
+  "Left Bankssts", "Left Caudal Anterior Cingulate", "Left Caudal Middle Frontal",
+  "Left Cuneus", "Left Entorhinal", "Left Fusiform", "Left Inferior Parietal",
+  "Left Inferior Temporal", "Left Isthmus Cingulate", "Left Lateral Occipital",
+  "Left Lateral Orbitofrontal", "Left Lingual", "Left Medial Orbitofrontal",
+  "Left Middle Temporal", "Left Parahippocampal", "Left Paracentral",
+  "Left Parsopercularis", "Left Parsorbitalis", "Left Parstriangularis",
+  "Left Pericalcarine", "Left Postcentral", "Left Posterior Cingulate",
+  "Left Precentral", "Left Precuneus", "Left Rostral Anterior Cingulate",
+  "Left Rostral Middle Frontal", "Left Superior Frontal", "Left Superior Parietal",
+  "Left Superior Temporal", "Left Supramarginal", "Left Frontal Pole",
+  "Left Temporal Pole", "Left Transverse Temporal", "Left Insula",
+
+  "Right Bankssts", "Right Caudal Anterior Cingulate", "Right Caudal Middle Frontal",
+  "Right Cuneus", "Right Entorhinal", "Right Fusiform", "Right Inferior Parietal",
+  "Right Inferior Temporal", "Right Isthmus Cingulate", "Right Lateral Occipital",
+  "Right Lateral Orbitofrontal", "Right Lingual", "Right Medial Orbitofrontal",
+  "Right Middle Temporal", "Right Parahippocampal", "Right Paracentral",
+  "Right Parsopercularis", "Right Parsorbitalis", "Right Parstriangularis",
+  "Right Pericalcarine", "Right Postcentral", "Right Posterior Cingulate",
+  "Right Precentral", "Right Precuneus", "Right Rostral Anterior Cingulate",
+  "Right Rostral Middle Frontal", "Right Superior Frontal", "Right Superior Parietal",
+  "Right Superior Temporal", "Right Supramarginal", "Right Frontal Pole",
+  "Right Temporal Pole", "Right Transverse Temporal", "Right Insula"
+)
+
+# --- Replace DK atlas names ---
+for (i in seq_along(patterns)) {
+  train_ct$Feature <- str_replace(train_ct$Feature, patterns[i], replacements[i])
+}
+
+# lock the plotting order (descending NMI)
+train_ct <- train_ct %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Plot ---
+ggplot(train_ct, aes(x = Feature, y = NMI, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.12),
+    breaks = seq(0, 0.12, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Cortical Region",
+    title = "Cortical Thickness Features (Descending NMI Order)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+3. Sub-cortical Volume
+```{r}
+train_vol <- train_nmi %>%
+  filter(grepl("_vol", Feature)) %>%
+  arrange(Rank)
+
+# Clean up feature names
+train_vol <- train_vol %>%
+  mutate(Feature = str_remove(Feature, "_vol"))
+
+# Define replacements as a named vector
+vol_replacements <- c(
+  "RlatVent"       = "Right Lateral Ventricle",
+  "LlatVent"       = "Left Lateral Ventricle",
+  "Lput"           = "Left Putamen",
+  "Rput"           = "Right Putamen",
+  "Lpal"           = "Left Pallidum",
+  "Lthal"          = "Left Thalamus Proper",
+  "Lhippo"         = "Left Hippocampus",    
+  "Rpal"           = "Right Pallidum",
+  "Rhippo"         = "Right Hippocampus",   
+  "Lamyg"          = "Left Amygdala"
+)
+
+setdiff(unique(train_vol$Feature), names(vol_replacements))
+
+
+# Apply replacements only if present
+train_vol <- train_vol %>%
+  mutate(Feature = ifelse(Feature %in% names(vol_replacements),
+                          vol_replacements[Feature],
+                          Feature))
+
+# Plot with facet
+ggplot(train_vol, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1,194),
+    guide = guide_colorbar(reverse = TRUE)  # Optional: reverse so low rank = darker
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.14),
+    breaks = seq(0, 0.14, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+  #facet_wrap(~ Sample, nrow = 1, scales = "fixed") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+```
+
+Plotting subcortical volume in descending order 
+```{r}
+# --- Subcortical Volume (descending order by NMI) ---
+train_vol <- train_nmi %>%
+  filter(grepl("_vol", Feature)) %>%
+  arrange(desc(NMI))  # descending order
+
+# Clean up feature names
+train_vol <- train_vol %>%
+  mutate(Feature = str_remove(Feature, "_vol"))
+
+# Define replacements as a named vector
+vol_replacements <- c(
+  "RlatVent" = "Right Lateral Ventricle",
+  "LlatVent" = "Left Lateral Ventricle",
+  "Lput"     = "Left Putamen",
+  "Rput"     = "Right Putamen",
+  "Lpal"     = "Left Pallidum",
+  "Rpal"     = "Right Pallidum",
+  "Lthal"    = "Left Thalamus Proper",
+  "Lhippo"   = "Left Hippocampus",
+  "Rhippo"   = "Right Hippocampus",
+  "Lamyg"    = "Left Amygdala"
+)
+
+# Check for any unmapped features
+setdiff(unique(train_vol$Feature), names(vol_replacements))
+
+# Apply replacements only if present
+train_vol <- train_vol %>%
+  mutate(
+    Feature = ifelse(Feature %in% names(vol_replacements),
+                     vol_replacements[Feature],
+                     Feature),
+    # lock the order in descending NMI
+    Feature = factor(Feature, levels = Feature)
+  )
+
+# --- Plot descending order ---
+ggplot(train_vol, aes(x = Feature, y = NMI, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)  # darker = better
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.14),
+    breaks = seq(0, 0.14, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Subcortical Structure",
+    title = "Subcortical Volume Features (Descending NMI Order)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 15),
+    axis.text.y = element_text(size = 15),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+Plotting both VOL and CT thickness together 
+```{r}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+### --- 1) Cortical Thickness ---
+train_ct <- train_nmi %>%
+  filter(grepl("thickavg", Feature)) %>%
+  mutate(
+    Feature = str_remove(Feature, "_thickavg"),
+    Feature = str_replace(Feature, "^L_", "lh_"),
+    Feature = str_replace(Feature, "^R_", "rh_")
+  )
+
+patterns <- c(
+  "lh_bankssts", "lh_caudalanteriorcingulate", "lh_caudalmiddlefrontal", 
+  "lh_cuneus", "lh_entorhinal", "lh_fusiform", "lh_inferiorparietal", 
+  "lh_inferiortemporal", "lh_isthmuscingulate", "lh_lateraloccipital", 
+  "lh_lateralorbitofrontal", "lh_lingual", "lh_medialorbitofrontal", 
+  "lh_middletemporal", "lh_parahippocampal", "lh_paracentral", 
+  "lh_parsopercularis", "lh_parsorbitalis", "lh_parstriangularis", 
+  "lh_pericalcarine", "lh_postcentral", "lh_posteriorcingulate", 
+  "lh_precentral", "lh_precuneus", "lh_rostralanteriorcingulate", 
+  "lh_rostralmiddlefrontal", "lh_superiorfrontal", "lh_superiorparietal", 
+  "lh_superiortemporal", "lh_supramarginal", "lh_frontalpole", 
+  "lh_temporalpole", "lh_transversetemporal", "lh_insula",
+
+  "rh_bankssts", "rh_caudalanteriorcingulate", "rh_caudalmiddlefrontal", 
+  "rh_cuneus", "rh_entorhinal", "rh_fusiform", "rh_inferiorparietal", 
+  "rh_inferiortemporal", "rh_isthmuscingulate", "rh_lateraloccipital", 
+  "rh_lateralorbitofrontal", "rh_lingual", "rh_medialorbitofrontal", 
+  "rh_middletemporal", "rh_parahippocampal", "rh_paracentral", 
+  "rh_parsopercularis", "rh_parsorbitalis", "rh_parstriangularis", 
+  "rh_pericalcarine", "rh_postcentral", "rh_posteriorcingulate", 
+  "rh_precentral", "rh_precuneus", "rh_rostralanteriorcingulate", 
+  "rh_rostralmiddlefrontal", "rh_superiorfrontal", "rh_superiorparietal", 
+  "rh_superiortemporal", "rh_supramarginal", "rh_frontalpole", 
+  "rh_temporalpole", "rh_transversetemporal", "rh_insula"
+)
+
+replacements <- c(
+  "Left Bankssts", "Left Caudal Anterior Cingulate", "Left Caudal Middle Frontal",
+  "Left Cuneus", "Left Entorhinal", "Left Fusiform", "Left Inferior Parietal",
+  "Left Inferior Temporal", "Left Isthmus Cingulate", "Left Lateral Occipital",
+  "Left Lateral Orbitofrontal", "Left Lingual", "Left Medial Orbitofrontal",
+  "Left Middle Temporal", "Left Parahippocampal", "Left Paracentral",
+  "Left Parsopercularis", "Left Parsorbitalis", "Left Parstriangularis",
+  "Left Pericalcarine", "Left Postcentral", "Left Posterior Cingulate",
+  "Left Precentral", "Left Precuneus", "Left Rostral Anterior Cingulate",
+  "Left Rostral Middle Frontal", "Left Superior Frontal", "Left Superior Parietal",
+  "Left Superior Temporal", "Left Supramarginal", "Left Frontal Pole",
+  "Left Temporal Pole", "Left Transverse Temporal", "Left Insula",
+  "Right Bankssts", "Right Caudal Anterior Cingulate", "Right Caudal Middle Frontal",
+  "Right Cuneus", "Right Entorhinal", "Right Fusiform", "Right Inferior Parietal",
+  "Right Inferior Temporal", "Right Isthmus Cingulate", "Right Lateral Occipital",
+  "Right Lateral Orbitofrontal", "Right Lingual", "Right Medial Orbitofrontal",
+  "Right Middle Temporal", "Right Parahippocampal", "Right Paracentral",
+  "Right Parsopercularis", "Right Parsorbitalis", "Right Parstriangularis",
+  "Right Pericalcarine", "Right Postcentral", "Right Posterior Cingulate",
+  "Right Precentral", "Right Precuneus", "Right Rostral Anterior Cingulate",
+  "Right Rostral Middle Frontal", "Right Superior Frontal", "Right Superior Parietal",
+  "Right Superior Temporal", "Right Supramarginal", "Right Frontal Pole",
+  "Right Temporal Pole", "Right Transverse Temporal", "Right Insula"
+)
+
+for (i in seq_along(patterns)) {
+  train_ct$Feature <- str_replace(train_ct$Feature, patterns[i], replacements[i])
+}
+
+train_ct <- train_ct %>%
+  mutate(modality = "CT")
+
+
+### --- 2) Subcortical Volume ---
+train_vol <- train_nmi %>%
+  filter(grepl("_vol", Feature)) %>%
+  mutate(Feature = str_remove(Feature, "_vol"))
+
+vol_replacements <- c(
+  "RlatVent" = "Right Lateral Ventricle",
+  "LlatVent" = "Left Lateral Ventricle",
+  "Lput"     = "Left Putamen",
+  "Rput"     = "Right Putamen",
+  "Lpal"     = "Left Pallidum",
+  "Lthal"    = "Left Thalamus Proper",
+  "Lhippo"   = "Left Hippocampus",
+  "Rpal"     = "Right Pallidum",
+  "Rhippo"   = "Right Hippocampus",
+  "Lamyg"    = "Left Amygdala"
+)
+
+train_vol <- train_vol %>%
+  mutate(Feature = ifelse(Feature %in% names(vol_replacements),
+                          vol_replacements[Feature],
+                          Feature),
+         modality = "Vol")
+
+
+### --- 3) Combine (CT on left, Vol on right) ---
+ct_vol <- bind_rows(train_ct, train_vol) %>%
+  mutate(
+    modality = factor(modality, levels = c("CT", "Vol")),
+    Feature = factor(Feature, levels = unique(Feature))
+  )
+
+### --- 4) Plot ---
+ggplot(ct_vol, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, max(ct_vol$Rank, na.rm = TRUE)),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.14),
+    breaks = seq(0, 0.14, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature",
+    title = "Cortical Thickness (left) and Subcortical Volume (right)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 8),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+
+```
+
+
+4. Surface Area
+```{r}
+train_sa <- train_nmi %>%
+  filter(grepl("_surfavg", Feature)) %>%
+  arrange(Rank)
+
+# Clean up feature names
+train_sa <- train_sa %>%
+  mutate(Feature = str_remove(Feature, "_surfavg"))
+
+# Define replacements as a named vector for DK atlas
+sa_replacements <- c(
+  "L_bankssts"                 = "Left Bankssts",
+  "L_caudalanteriorcingulate"  = "Left Caudal Anterior Cingulate",
+  "L_caudalmiddlefrontal"      = "Left Caudal Middle Frontal",
+  "L_cuneus"                   = "Left Cuneus",
+  "L_entorhinal"               = "Left Entorhinal",
+  "L_fusiform"                 = "Left Fusiform",
+  "L_inferiorparietal"         = "Left Inferior Parietal",
+  "L_inferiortemporal"         = "Left Inferior Temporal",
+  "L_isthmuscingulate"         = "Left Isthmus Cingulate",
+  "L_lateraloccipital"         = "Left Lateral Occipital",
+  "L_lateralorbitofrontal"     = "Left Lateral Orbitofrontal",
+  "L_lingual"                  = "Left Lingual",
+  "L_medialorbitofrontal"      = "Left Medial Orbitofrontal",
+  "L_middletemporal"           = "Left Middle Temporal",
+  "L_parahippocampal"          = "Left Parahippocampal",
+  "L_paracentral"              = "Left Paracentral",
+  "L_parsopercularis"          = "Left Parsopercularis",
+  "L_parsorbitalis"            = "Left Parsorbitalis",
+  "L_parstriangularis"         = "Left Parstriangularis",
+  "L_pericalcarine"            = "Left Pericalcarine",
+  "L_postcentral"              = "Left Postcentral",
+  "L_posteriorcingulate"       = "Left Posterior Cingulate",
+  "L_precentral"               = "Left Precentral",
+  "L_precuneus"                = "Left Precuneus",
+  "L_rostralanteriorcingulate" = "Left Rostral Anterior Cingulate",
+  "L_rostralmiddlefrontal"     = "Left Rostral Middle Frontal",
+  "L_superiorfrontal"          = "Left Superior Frontal",
+  "L_superiorparietal"         = "Left Superior Parietal",
+  "L_superiortemporal"         = "Left Superior Temporal",
+  "L_supramarginal"            = "Left Supramarginal",
+  "L_frontalpole"              = "Left Frontal Pole",
+  "L_temporalpole"             = "Left Temporal Pole",
+  "L_transversetemporal"       = "Left Transverse Temporal",
+  "L_insula"                   = "Left Insula",
+
+  "R_bankssts"                 = "Right Bankssts",
+  "R_caudalanteriorcingulate"  = "Right Caudal Anterior Cingulate",
+  "R_caudalmiddlefrontal"      = "Right Caudal Middle Frontal",
+  "R_cuneus"                   = "Right Cuneus",
+  "R_entorhinal"               = "Right Entorhinal",
+  "R_fusiform"                 = "Right Fusiform",
+  "R_inferiorparietal"         = "Right Inferior Parietal",
+  "R_inferiortemporal"         = "Right Inferior Temporal",
+  "R_isthmuscingulate"         = "Right Isthmus Cingulate",
+  "R_lateraloccipital"         = "Right Lateral Occipital",
+  "R_lateralorbitofrontal"     = "Right Lateral Orbitofrontal",
+  "R_lingual"                  = "Right Lingual",
+  "R_medialorbitofrontal"      = "Right Medial Orbitofrontal",
+  "R_middletemporal"           = "Right Middle Temporal",
+  "R_parahippocampal"          = "Right Parahippocampal",
+  "R_paracentral"              = "Right Paracentral",
+  "R_parsopercularis"          = "Right Parsopercularis",
+  "R_parsorbitalis"            = "Right Parsorbitalis",
+  "R_parstriangularis"         = "Right Parstriangularis",
+  "R_pericalcarine"            = "Right Pericalcarine",
+  "R_postcentral"              = "Right Postcentral",
+  "R_posteriorcingulate"       = "Right Posterior Cingulate",
+  "R_precentral"               = "Right Precentral",
+  "R_precuneus"                = "Right Precuneus",
+  "R_rostralanteriorcingulate" = "Right Rostral Anterior Cingulate",
+  "R_rostralmiddlefrontal"     = "Right Rostral Middle Frontal",
+  "R_superiorfrontal"          = "Right Superior Frontal",
+  "R_superiorparietal"         = "Right Superior Parietal",
+  "R_superiortemporal"         = "Right Superior Temporal",
+  "R_supramarginal"            = "Right Supramarginal",
+  "R_frontalpole"              = "Right Frontal Pole",
+  "R_temporalpole"             = "Right Temporal Pole",
+  "R_transversetemporal"       = "Right Transverse Temporal",
+  "R_insula"                   = "Right Insula"
+)
+
+# Apply replacements only if present
+train_sa <- train_sa %>%
+  mutate(Feature = ifelse(Feature %in% names(sa_replacements),
+                          sa_replacements[Feature],
+                          Feature))
+
+# Plot with facet
+ggplot(train_sa, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1,194),
+    guide = guide_colorbar(reverse = TRUE)  # Optional: reverse so low rank = darker
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.08),
+    breaks = seq(0, 0.08, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+  #facet_wrap(~ Sample, nrow = 1, scales = "fixed") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+```
+
+Plotting surface area in descending order 
+```{r}
+# --- Surface Area (SA) ---
+train_sa <- train_nmi %>%
+  filter(grepl("_surfavg", Feature)) %>%
+  arrange(desc(NMI))  # descending order by NMI
+
+# Clean up feature names
+train_sa <- train_sa %>%
+  mutate(Feature = str_remove(Feature, "_surfavg"))
+
+# Define replacements (DK atlas)
+sa_replacements <- c(
+  "L_bankssts"                 = "Left Bankssts",
+  "L_caudalanteriorcingulate"  = "Left Caudal Anterior Cingulate",
+  "L_caudalmiddlefrontal"      = "Left Caudal Middle Frontal",
+  "L_cuneus"                   = "Left Cuneus",
+  "L_entorhinal"               = "Left Entorhinal",
+  "L_fusiform"                 = "Left Fusiform",
+  "L_inferiorparietal"         = "Left Inferior Parietal",
+  "L_inferiortemporal"         = "Left Inferior Temporal",
+  "L_isthmuscingulate"         = "Left Isthmus Cingulate",
+  "L_lateraloccipital"         = "Left Lateral Occipital",
+  "L_lateralorbitofrontal"     = "Left Lateral Orbitofrontal",
+  "L_lingual"                  = "Left Lingual",
+  "L_medialorbitofrontal"      = "Left Medial Orbitofrontal",
+  "L_middletemporal"           = "Left Middle Temporal",
+  "L_parahippocampal"          = "Left Parahippocampal",
+  "L_paracentral"              = "Left Paracentral",
+  "L_parsopercularis"          = "Left Parsopercularis",
+  "L_parsorbitalis"            = "Left Parsorbitalis",
+  "L_parstriangularis"         = "Left Parstriangularis",
+  "L_pericalcarine"            = "Left Pericalcarine",
+  "L_postcentral"              = "Left Postcentral",
+  "L_posteriorcingulate"       = "Left Posterior Cingulate",
+  "L_precentral"               = "Left Precentral",
+  "L_precuneus"                = "Left Precuneus",
+  "L_rostralanteriorcingulate" = "Left Rostral Anterior Cingulate",
+  "L_rostralmiddlefrontal"     = "Left Rostral Middle Frontal",
+  "L_superiorfrontal"          = "Left Superior Frontal",
+  "L_superiorparietal"         = "Left Superior Parietal",
+  "L_superiortemporal"         = "Left Superior Temporal",
+  "L_supramarginal"            = "Left Supramarginal",
+  "L_frontalpole"              = "Left Frontal Pole",
+  "L_temporalpole"             = "Left Temporal Pole",
+  "L_transversetemporal"       = "Left Transverse Temporal",
+  "L_insula"                   = "Left Insula",
+
+  "R_bankssts"                 = "Right Bankssts",
+  "R_caudalanteriorcingulate"  = "Right Caudal Anterior Cingulate",
+  "R_caudalmiddlefrontal"      = "Right Caudal Middle Frontal",
+  "R_cuneus"                   = "Right Cuneus",
+  "R_entorhinal"               = "Right Entorhinal",
+  "R_fusiform"                 = "Right Fusiform",
+  "R_inferiorparietal"         = "Right Inferior Parietal",
+  "R_inferiortemporal"         = "Right Inferior Temporal",
+  "R_isthmuscingulate"         = "Right Isthmus Cingulate",
+  "R_lateraloccipital"         = "Right Lateral Occipital",
+  "R_lateralorbitofrontal"     = "Right Lateral Orbitofrontal",
+  "R_lingual"                  = "Right Lingual",
+  "R_medialorbitofrontal"      = "Right Medial Orbitofrontal",
+  "R_middletemporal"           = "Right Middle Temporal",
+  "R_parahippocampal"          = "Right Parahippocampal",
+  "R_paracentral"              = "Right Paracentral",
+  "R_parsopercularis"          = "Right Parsopercularis",
+  "R_parsorbitalis"            = "Right Parsorbitalis",
+  "R_parstriangularis"         = "Right Parstriangularis",
+  "R_pericalcarine"            = "Right Pericalcarine",
+  "R_postcentral"              = "Right Postcentral",
+  "R_posteriorcingulate"       = "Right Posterior Cingulate",
+  "R_precentral"               = "Right Precentral",
+  "R_precuneus"                = "Right Precuneus",
+  "R_rostralanteriorcingulate" = "Right Rostral Anterior Cingulate",
+  "R_rostralmiddlefrontal"     = "Right Rostral Middle Frontal",
+  "R_superiorfrontal"          = "Right Superior Frontal",
+  "R_superiorparietal"         = "Right Superior Parietal",
+  "R_superiortemporal"         = "Right Superior Temporal",
+  "R_supramarginal"            = "Right Supramarginal",
+  "R_frontalpole"              = "Right Frontal Pole",
+  "R_temporalpole"             = "Right Temporal Pole",
+  "R_transversetemporal"       = "Right Transverse Temporal",
+  "R_insula"                   = "Right Insula"
+)
+
+# Apply replacements
+train_sa <- train_sa %>%
+  mutate(
+    Feature = ifelse(Feature %in% names(sa_replacements),
+                     sa_replacements[Feature],
+                     Feature),
+    Feature = factor(Feature, levels = Feature)  # lock order in descending NMI
+  )
+
+# --- Plot descending order ---
+ggplot(train_sa, aes(x = Feature, y = NMI, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.06),
+    breaks = seq(0, 0.06, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature",
+    title = "Surface Area Features (Descending NMI Order)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+5.EA TASK
+```{r}
+train_ea <- train_nmi %>%
+  filter(grepl("^pGP\\.|^aPUT\\.|^lAMY\\.|^mAMY\\.|^THA\\.|^pPUT\\.", Feature) |
+         grepl("^X17Networks", Feature)) %>%
+  arrange(Rank)
+
+# Subcortical replacements
+subcortical_replacements <- c(
+  "pGP.lh"    = "Left Posterior Globus Pallidus",
+  "pGP.rh"    = "Right Posterior Globus Pallidus",
+  "aPUT.lh"   = "Left Anterior Putamen",
+  "aPUT.rh"   = "Right Anterior Putamen",
+  "pPUT.lh"   = "Left Posterior Putamen",
+  "pPUT.rh"   = "Right Posterior Putamen",
+  "lAMY.lh"   = "Left Lateral Amygdala",
+  "mAMY.lh"   = "Left Medial Amygdala",
+  "THA.DA.lh" = "Left Thalamus (Dorsal Anterior)"
+)
+
+# Apply replacements to subcortical features
+train_ea <- train_ea %>%
+  mutate(Feature = ifelse(Feature %in% names(subcortical_replacements),
+                          subcortical_replacements[Feature],
+                          Feature))
+
+# Convert Schaefer/Yeo labels
+train_ea <- train_ea %>%
+  mutate(Feature = str_replace(Feature, "^X17Networks_LH_", "Left Hemisphere "),
+         Feature = str_replace(Feature, "^X17Networks_RH_", "Right Hemisphere "),
+         Feature = str_replace_all(Feature, "_", " "))
+
+# Plot with facet
+ggplot(train_ea, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C",  "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1,194),
+    guide = guide_colorbar(reverse = TRUE)  # Optional: reverse so low rank = darker
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.08),
+    breaks = seq(0, 0.08, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+  #facet_wrap(~ Sample, nrow = 1, scales = "fixed") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+Reorganizing the EA task by descedning order 
+```{r}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+# 8. EA TASK
+train_ea <- train_nmi %>%
+  filter(
+    grepl("^pGP\\.|^aPUT\\.|^lAMY\\.|^mAMY\\.|^THA\\.|^pPUT\\.", Feature) |
+    grepl("^X17Networks", Feature)
+  )
+
+# --- Define subcortical replacements ---
+subcortical_replacements <- c(
+  "pGP.lh"    = "Left Posterior Globus Pallidus",
+  "pGP.rh"    = "Right Posterior Globus Pallidus",
+  "aPUT.lh"   = "Left Anterior Putamen",
+  "aPUT.rh"   = "Right Anterior Putamen",
+  "pPUT.lh"   = "Left Posterior Putamen",
+  "pPUT.rh"   = "Right Posterior Putamen",
+  "lAMY.lh"   = "Left Lateral Amygdala",
+  "mAMY.lh"   = "Left Medial Amygdala",
+  "THA.DA.lh" = "Left Thalamus (Dorsal Anterior)"
+)
+
+# --- Apply replacements to subcortical features ---
+train_ea <- train_ea %>%
+  mutate(Feature = ifelse(Feature %in% names(subcortical_replacements),
+                          subcortical_replacements[Feature],
+                          Feature))
+
+# --- Clean up Schaefer/Yeo cortical labels ---
+train_ea <- train_ea %>%
+  mutate(
+    Feature = str_replace(Feature, "^X17Networks_LH_", "Left Hemisphere "),
+    Feature = str_replace(Feature, "^X17Networks_RH_", "Right Hemisphere "),
+    Feature = str_replace_all(Feature, "_", " ")
+  )
+
+# --- Extract hemisphere for ordering ---
+train_ea <- train_ea %>%
+  mutate(
+    Hemisphere = case_when(
+      str_detect(Feature, "^Left")  ~ "Left",
+      str_detect(Feature, "^Right") ~ "Right",
+      TRUE ~ "Other"
+    )
+  )
+
+# --- Order by Hemisphere (Left first), then by descending NMI ---
+train_ea <- train_ea %>%
+  arrange(Hemisphere, desc(NMI)) %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Plot ---
+ggplot(train_ea, aes(y = NMI, x = Feature, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, max(train_ea$Rank, na.rm = TRUE)),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.08),
+    breaks = seq(0, 0.08, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature",
+    title = "EA Task – NMI by Feature (Descending, Left→Right)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 1),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+Plotting all features on one plot 
+```{r}
+#Now going to map all of the features and display it all in one plot 
+# --- Add modality suffixes (with space) ---
+train_ct  <- train_ct  %>% mutate(Feature = paste0(Feature, " CT"))
+train_sa  <- train_sa  %>% mutate(Feature = paste0(Feature, " SA"))
+train_vol <- train_vol %>% mutate(Feature = paste0(Feature, " Vol"))
+train_ea  <- train_ea  %>% mutate(Feature = paste0(Feature, " EA"))
+
+# Combine everything (cognitive tests left as-is)
+train_nmi_renamed <- rbind(
+  train_cog, train_ct, train_sa, train_vol, train_ea
+)
+
+# Ensure ordering by Rank
+train_nmi_renamed <- train_nmi_renamed %>%
+  arrange(Rank) %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Plot ---
+ggplot(train_nmi_renamed, aes(x = Feature, y = NMI, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)  # darkest = best rank
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.12),
+    breaks = seq(0, 0.12, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 7),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+#### If we want only the top 30%
+# Keep only top 30% by Rank
+top_n <- ceiling(0.3 * nrow(train_nmi_renamed))  # ≈ 71
+train_nmi_top <- train_nmi_renamed %>%
+  arrange(Rank) %>%
+  slice_head(n = top_n) %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Plot top 30% ---
+ggplot(train_nmi_top, aes(x = Feature, y = NMI, fill = Rank)) +
+  geom_col(width = 0.8) +
+  scale_fill_gradientn(
+    colors = c("#A63603", "#E6550D", "#FD8D3C", "#FDAE6B", "#FEE6CE", "#FFF5EB"),
+    name = "Feature Rank",
+    limits = c(1, 194),
+    guide = guide_colorbar(reverse = TRUE)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.12),
+    breaks = seq(0, 0.12, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature",
+    title = "Top 30% Features by Rank"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
+
+Ordering top 30% NMI by datatype
+```{r}
+# --- Add modality suffixes (with space) ---
+train_cog <- train_cog %>% mutate(Feature = paste0(Feature, " Cog"))
+train_ct  <- train_ct  %>% mutate(Feature = paste0(Feature, " CT"))
+train_sa  <- train_sa  %>% mutate(Feature = paste0(Feature, " SA"))
+train_vol <- train_vol %>% mutate(Feature = paste0(Feature, " Vol"))
+train_ea  <- train_ea  %>% mutate(Feature = paste0(Feature, " EA"))
+
+# --- Select consistent columns ---
+train_cog2 <- train_cog  %>% select(Feature, NMI, Rank)
+train_ct2  <- train_ct   %>% select(Feature, NMI, Rank)
+train_sa2  <- train_sa   %>% select(Feature, NMI, Rank)
+train_vol2 <- train_vol  %>% select(Feature, NMI, Rank)
+train_ea2  <- train_ea   %>% select(Feature, NMI, Rank)
+
+# --- Combine all modalities ---
+train_nmi_renamed <- bind_rows(train_cog2, train_ct2, train_sa2, train_vol2, train_ea2)
+
+# --- Extract datatype from suffix ---
+train_nmi_renamed <- train_nmi_renamed %>%
+  mutate(
+    datatype = case_when(
+      str_ends(Feature, " CT")  ~ "CT",
+      str_ends(Feature, " SA")  ~ "SA",
+      str_ends(Feature, " Vol") ~ "Vol",
+      str_ends(Feature, " EA")  ~ "EA",
+      str_ends(Feature, " Cog") ~ "Cognitive",
+      TRUE ~ "Other"
+    )
+  )
+
+# --- Order by Rank for plotting ---
+train_nmi_renamed <- train_nmi_renamed %>%
+  arrange(Rank) %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Keep top 30% by Rank ---
+top_n <- ceiling(1 * nrow(train_nmi_renamed))
+train_nmi_top <- train_nmi_renamed %>%
+  slice_head(n = top_n) %>%
+  mutate(Feature = factor(Feature, levels = Feature))
+
+# --- Plot top 30% colored by datatype ---
+ggplot(train_nmi_top, aes(x = Feature, y = NMI, fill = datatype)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(#003A47
+    values = c(
+      "Cognitive" = "#550527",
+      "CT"        = "#688e26",
+      "EA"        = "#faa613",
+      "SA"        = "#f44708",
+      "Vol"       = "#a10702"
+    ),
+    name = "Datatype"
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.12),
+    breaks = seq(0, 0.12, by = 0.02),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  labs(
+    y = "NMI Score",
+    x = "Feature",
+    title = "Top 30% Features by Rank (colored by datatype)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 7),
+    axis.text.y = element_text(size = 10),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+```
