@@ -4,10 +4,11 @@
 
 This repository contains code and data used in the analyses for the manuscript titled **"Beyond Diagnosis: Transdiagnostic Neuro-Behavioural Profiles of Social Cognition via Multimodal Data Integration Across Autism and Schizophrenia Spectrum Disorders."** It contains scripts for processing, visualizing, and analyzing multimodal data to identify biologically informed subgroups across individuals with SSD, autism, and typically developing controls (TDC) using Similiarity Network Fusion (SNF) and metaSNF.   
 
-- **SNF Analysis** – Add Description
-- **Comparing Clusters** – Add Description
-- **Stability of Clusters** – Add Description
-- **Out-of-model Comparisons** –Add Description
+In order:
+- **Data_prep** – Preparation of data for main analysis; neuroCombat to remove scanner effects. 
+- **SNF Analysis** – Primary analysis involving main multimodal data integration steps to produce clusters/ 
+- **Comparing Clusters** – Statistical comparison of input features and out-of-model features (for cluster valdaition) acorss clusters (and diagnostic reference groups).
+- **Stability of Clusters** – Bootstrap resampling and visuaization of clustering stability and agreement. 
 
 This repository uses and builds off of code from previous studies:
 
