@@ -12,5 +12,5 @@ In order:
 
 This repository uses and builds off of code from previous studies:
 
-1.  https://github.com/juliagallucci/ABCD_SNF/tree/main
+1.  https://github.com/juliagallucci/ABCD_SNF
 2.  https://github.com/gracejacobs/SNF-NDD-Clustering
