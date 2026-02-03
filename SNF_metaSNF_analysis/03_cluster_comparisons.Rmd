@@ -1,0 +1,113 @@
+---
+title: "Cluster_comparisons"
+author: "Maria Secara"
+date: "2025-09-01"
+output: html_document
+---
+
+# Internal Clustering Validation  
+## Comparing consensus clustering to determine the optimal cluster number moving forwards
+
+### Clusters range from 2-8. Dunn's index and silhouette width will be plotted to determine the optimal cluster number  
+  
+avg.silwidth = average silhouette width (want higher)
+dunn = minimum separation / maximum diameter  
+dunn2 = minimum average dissimilarity between two cluster / maximum average within cluster dissimilarity
+widestgap = widest within-cluster gap
+sindex = separation index
+wb.ratio = average.within/average.between
+
+```{r}
+#load in the necessary libraries 
+library(dplyr)
+library(ggplot2)
+#install.packages("ggalluvial")
+library(ggalluvial)
+```
+
+
+```{r}
+#change to split 2 if running replication
+clust_parameters_2 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_2.csv", sep=",")
+clust_parameters_3 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_3.csv", sep=",")
+clust_parameters_4 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_4.csv", sep=",")
+clust_parameters_5 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_5.csv", sep=",")
+clust_parameters_6 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_6.csv", sep=",")
+clust_parameters_7 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_7.csv", sep=",")
+clust_parameters_8 <- read.csv(".../SNF_output1/full_Cluster_fit_stats_8.csv", sep=",")
+
+# Merge the data frames into one
+clust_parameters <- bind_rows(
+  clust_parameters_2 %>% mutate(Cluster = 2),
+  clust_parameters_3 %>% mutate(Cluster = 3),
+  clust_parameters_4 %>% mutate(Cluster = 4),
+  clust_parameters_5 %>% mutate(Cluster = 5),
+  clust_parameters_6 %>% mutate(Cluster = 6),
+  clust_parameters_7 %>% mutate(Cluster = 7),
+  clust_parameters_8 %>% mutate(Cluster = 8)
+)
+
+```
+  
+```{r echo=FALSE, fig.height=5, fig.width=5}
+## plot average silhouette plot 
+parameters <- clust_parameters[which(clust_parameters$X == "avg.silwidth" | clust_parameters$X == "dunn" |  clust_parameters$X == "sindex" | clust_parameters$X == "wb.ratio"), ]
+
+ggplot(parameters, aes(x = factor(Cluster), y = unlist.cluster_stats., group = X)) +
+  geom_point(size = 1) +
+  geom_line()+
+  facet_wrap(~ X, scales = "free_y") + # Create separate plots for each fit index
+  labs(title = "Cluster Fit Indices for c = 2-8",
+       x = "Number of Clusters (C)",
+       y = "Fit Index Value") +
+  theme_classic() +
+  theme(legend.position = "none") # Optional: Remove the legend if it's not needed
+Input_directory = ".../SNF_output1/cluster_comparison/"
+ggsave(last_plot(), file=paste(Input_directory, "Goodness_of_fit.png", sep=""))
+
+```
+
+```{r}
+# Extract cluster assignments from each SNF model
+snf2 <-read.csv(".../SNF_output1/train_RESULTS_2_clust_k34_0.7.csv")
+snf3 <-read.csv(".../SNF_output1/train_RESULTS_3_clust_k34_0.7.csv")
+snf4 <-read.csv(".../SNF_output1/train_RESULTS_4_clust_k34_0.7.csv")
+snf5 <-read.csv(".../SNF_output1/train_RESULTS_5_clust_k34_0.7.csv")
+snf6 <-read.csv(".../SNF_output1/train_RESULTS_6_clust_k34_0.7.csv")
+snf7 <-read.csv(".../SNF_output1/train_RESULTS_7_clust_k34_0.7.csv")
+snf8 <-read.csv(".../SNF_output1/train_RESULTS_8_clust_k34_0.7.csv")
+
+
+df1 <- snf2[,c(2,3)] %>% rename(SNF2 = groups)
+df2 <- snf3[,c(2,3)] %>% rename(SNF3 = groups)
+df3 <- snf4[,c(2,3)] %>% rename(SNF4 = groups)
+df4 <- snf5[,c(2,3)] %>% rename(SNF5 = groups)
+df5 <- snf6[,c(2,3)] %>% rename(SNF6 = groups)
+df6 <- snf7[,c(2,3)] %>% rename(SNF7 = groups)
+df7 <- snf8[,c(2,3)] %>% rename(SNF8 = groups)
+
+# Merge datasets by pin
+df <- purrr::reduce(list(df1, df2, df3, df4, df5, df6, df7), left_join, by = "participant_id")
+# Convert to long format
+df_long <- df %>%
+  tidyr::pivot_longer(cols = starts_with("SNF"),
+               names_to = "Model",
+               values_to = "Cluster") %>%
+  mutate(Model = as.factor(gsub("SNF", "", Model)),  # Convert Model to factor
+         Cluster = as.factor(Cluster))  # Ensure Cluster is categorical
+# Check structure
+str(df_long)
+# Set color palette based on max number of clusters
+num_clusters <- length(unique(df_long$Cluster))
+palette_colors <- RColorBrewer::brewer.pal(n = min(num_clusters, 12), name = "Set1")  # Use up to 12 colors
+# Alluvial plot
+ggplot(df_long, aes(x = Model, stratum = Cluster, alluvium = participant_id, fill = Cluster)) +
+  ggalluvial::geom_flow(stat = "alluvium", alpha = 0.7) +  # Flow connections
+  ggalluvial::geom_stratum(alpha = 0.8) +  # Cluster strata
+  scale_x_discrete(limits = as.character(2:8)) +  # Ensure all models appear
+  scale_fill_manual(values = palette_colors) +  # Apply custom color palette
+  labs(title = "Changes in Class Membership Across SNF Models",
+       x = "Number of Classes in Model",
+       y = "Count of Individuals") +
+  theme_minimal()
+```
