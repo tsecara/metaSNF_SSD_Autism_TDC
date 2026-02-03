@@ -9,7 +9,7 @@ This repository contains code and data used in the analyses for the manuscript t
 - **Stability of Clusters** – Add Description
 - **Out-of-model Comparisons** –Add Description
 
-This reposirtory uses and builds off of code from previous studies:
+This repository uses and builds off of code from previous studies:
 
 1.  https://github.com/juliagallucci/ABCD_SNF/tree/main
 2.  https://github.com/gracejacobs/SNF-NDD-Clustering
