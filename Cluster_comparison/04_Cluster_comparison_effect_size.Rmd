@@ -1,0 +1,673 @@
+---
+title: "Cluster_comparison_effectsize"
+author: "Maria Teodora Secara"
+date: "21/10/2025"
+output: html_document
+---
+
+Load necessary packages
+```{r}
+#devtools::install_github("ggseg/ggseg")
+#devtools::install_github("ggseg/ggsegSchaefer")
+#devtools::install_github("ggseg/ggsegDesterieux")
+#devtools::install_github("ggseg/ggsegJHU")
+
+library(ggsegSchaefer)
+library(ggsegDesterieux)
+library(ggsegJHU)
+library(ggseg)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(reshape2)
+library(tidygraph)
+library(ggraph)
+```
+
+Helper Functions to Generate t-stat and effect size
+```{r}
+library(dplyr)
+library(stringr)
+
+# Generic t-stat calculator: ref = "not k", target = "cluster k"
+compute_tstats <- function(ref_df, target_df) {
+  stopifnot(identical(colnames(ref_df), colnames(target_df)))
+  cols <- colnames(ref_df)
+  tvals <- vapply(seq_along(cols), function(i) {
+    # Welch t-test (default). Extract numeric from named statistic.
+    unname(t.test(ref_df[[i]], target_df[[i]])$statistic)
+  }, numeric(1))
+  data.frame(label = cols, tstat = tvals, row.names = NULL)
+}
+
+# Convenience to build per-cluster outputs for a given set of columns
+run_for_all_clusters <- function(df, group_col = "groups", cols, out_prefix) {
+  for (k in sort(unique(df[[group_col]]))) {
+    target <- df %>% filter(.data[[group_col]] == k) %>% select(all_of(cols))
+    ref    <- df %>% filter(.data[[group_col]] != k) %>% select(all_of(cols))
+    eff    <- compute_tstats(ref, target)
+    out    <- sprintf("%s_C%s_effectsize.csv", out_prefix, k)
+    write.csv(eff, out, row.names = FALSE)
+  }
+}
+```
+
+Loading in the file containing data
+```{r}
+compare_df2 <- read.csv(".../SNF_output1/full_RESULTS_5_clust_k48_0.6.csv")
+compare_df2$groups <- as.factor(compare_df2$groups)
+iq<- read.csv(".../IQ/combined_demo_IQ_final.csv")
+colnames(iq)[1] <- "participant_id"
+iq_df <- iq[, c("participant_id", "iq")]
+compare_df2 <- inner_join(compare_df2, iq_df, by = "participant_id")
+
+compare_df3 <- read.csv(".../SNF_output1/full_RESULTS_5_clust_k48_0.6.csv")
+compare_df3$groups <- as.factor(compare_df3$groups)
+RS_anal <- read.csv(".../RS_noGSR.csv")
+RS_anal <- RS_anal[,-1]
+compare_df3 <- inner_join(compare_df3, RS_anal, by = "participant_id")
+```
+
+Selecting Columns per imaging modality 
+```{r}
+# Cortical thickness 
+ct_cols  <- grep("thickavg", names(compare_df2), value = TRUE)
+
+# Surface area 
+sa_cols  <- grep("_surfavg", names(compare_df2), value = TRUE)
+
+# Subcortical volumes 
+vol_cols <- grep("_vol", names(compare_df2), value = TRUE)
+
+# EA values  
+#selecting for subcortical EA regions 
+ea_sc_tokens <- c(
+  "aHIP", "pHIP", "lAMY", "mAMY",
+  "THA\\.DP", "THA\\.VP", "THA\\.VA", "THA\\.DA",
+  "NAc\\.shell", "NAc\\.core",
+  "pGP", "aGP", "aPUT", "pPUT", "aCAU", "pCAU"
+)
+ea_sc_pattern <- paste0("^(", paste(ea_sc_tokens, collapse="|"), ")\\.(lh|rh)$")
+
+# Select EA columns = cortical X17* + the subcortical set above
+EA_cols <- names(compare_df2)[
+  grepl("^X17", names(compare_df2)) | grepl(ea_sc_pattern, names(compare_df2))
+]
+
+#FA values  
+FA_cols <- grep("_FA", names(compare_df2), value = TRUE)
+
+#MD values  
+MD_cols <- grep("_MD", names(compare_df2), value = TRUE)
+
+#RS values  
+RS_cols <- grep("RowMean_", names(compare_df3), value = TRUE)
+
+```
+
+Computing and saving effect sizes CSVS (t-stats) for all clusters
+```{r}
+outdir <- ".../SNF_output1/effect_size"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+# CT
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = ct_cols, 
+  out_prefix = file.path(outdir, "C_CT")
+)
+
+# SA
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = sa_cols, 
+  out_prefix = file.path(outdir, "C_SA")
+)
+
+# VOL
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = vol_cols, 
+  out_prefix = file.path(outdir, "C_VOL")
+)
+
+#EA 
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = EA_cols, 
+  out_prefix = file.path(outdir, "C_EA")
+)
+
+#FA 
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = FA_cols, 
+  out_prefix = file.path(outdir, "C_FA")
+)
+
+#MD 
+run_for_all_clusters(
+  df = compare_df2, 
+  cols = MD_cols, 
+  out_prefix = file.path(outdir, "C_MD")
+)
+
+#RS 
+run_for_all_clusters(
+  df = compare_df3, 
+  cols = RS_cols, 
+  out_prefix = file.path(outdir, "C_RS_noGSR_FDR")
+)
+
+```
+
+Cortical Thickness Plotting 
+```{r}
+# Read your attached CSV
+ct <- read.csv(".../SNF_output1/effect_size/C_CT_C1_effectsize.csv")   # adjust path if needed
+
+# Map to ggseg DK labels
+ct_mapped <- ct %>%
+  mutate(
+    region = str_remove(label, "^([LR])_") |> str_remove("_thickavg$"),
+    hemi   = ifelse(str_starts(label, "L_"), "lh",
+             ifelse(str_starts(label, "R_"), "rh", NA_character_)),
+    label  = paste0(hemi, "_", region)
+  )
+
+# Optional: sanity check against the DK atlas labels
+unmatched <- setdiff(ct_mapped$label, unique(dk$data$label))
+if (length(unmatched)) {
+  message("Unmatched labels (check spelling): ", paste(unmatched, collapse = ", "))
+}
+
+#Flipping the signs 
+ct_plot <- ct_mapped %>%
+  mutate(tplot = -tstat)
+ct_plot <- ct_plot %>% dplyr::select(label, tplot)
+
+# Plot (DK is the default atlas)
+ggseg(
+  .data = ct_plot,
+  mapping = aes(fill = tplot),
+  colour = "black",
+  position = "stacked"
+) +
+  theme_void() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                       midpoint = 0, limits = c(-8, 10)) +
+  labs(title = "Cortical Thickness — Cluster 1", fill = "T-stat")
+
+```
+
+Surface Area
+```{r}
+# Read your attached CSV
+sa <- read.csv("../SNF_output1/effect_size/C_SA_C5_effectsize.csv")   # adjust path if needed
+
+# Map to ggseg DK labels
+sa_mapped <- sa %>%
+  mutate(
+    region = str_remove(label, "^([LR])_") |> str_remove("_surfavg$"),
+    hemi   = ifelse(str_starts(label, "L_"), "lh",
+             ifelse(str_starts(label, "R_"), "rh", NA_character_)),
+    label  = paste0(hemi, "_", region)
+  )
+
+# Optional: sanity check against the DK atlas labels
+unmatched <- setdiff(sa_mapped$label, unique(dk$data$label))
+if (length(unmatched)) {
+  message("Unmatched labels (check spelling): ", paste(unmatched, collapse = ", "))
+}
+
+#Flipping the signs 
+sa_plot <- sa_mapped %>%
+  mutate(tplot = -tstat)
+sa_plot <- sa_plot %>% dplyr::select(label, tplot)
+
+# Plot (DK is the default atlas)
+ggseg(
+  .data = sa_plot,
+  mapping = aes(fill = tplot),
+  colour = "black",
+  position = "stacked"
+) +
+  theme_void() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                       midpoint = 0, limits = c(-8, 10)) +
+  labs(title = "Surface Area — Cluster 5", fill = "T-stat")
+
+
+```
+
+Subcortical Volume 
+```{r}
+# ---- Read in subcortical effect size CSV ----
+vol <- read.csv("../SNF_output1/effect_size/C_VOL_C5_effectsize.csv")
+
+vol_map <- vol %>%
+  mutate(label = dplyr::case_when(
+    label == "LlatVent_vol" ~ "Left-Lateral-Ventricle",
+    label == "RlatVent_vol" ~ "Right-Lateral-Ventricle",
+    label == "Lthal_vol"    ~ "Left-Thalamus-Proper",
+    label == "Rthal_vol"    ~ "Right-Thalamus-Proper",
+    label == "Lcaud_vol"    ~ "Left-Caudate",
+    label == "Rcaud_vol"    ~ "Right-Caudate",
+    label == "Lput_vol"     ~ "Left-Putamen",
+    label == "Rput_vol"     ~ "Right-Putamen",
+    label == "Lpal_vol"     ~ "Left-Pallidum",
+    label == "Rpal_vol"     ~ "Right-Pallidum",
+    label == "Lhippo_vol"   ~ "Left-Hippocampus",
+    label == "Rhippo_vol"   ~ "Right-Hippocampus",
+    label == "Lamyg_vol"    ~ "Left-Amygdala",
+    label == "Ramyg_vol"    ~ "Right-Amygdala",
+    #label == "Laccumb_vol"  ~ "Left-Accumbens-area",
+    #label == "Raccumb_vol"  ~ "Right-Accumbens-area",
+    TRUE ~ label
+  )) %>%
+  mutate(label = str_trim(label))
+
+# Show any that still don't match the atlas:
+setdiff(unique(vol_map$label), unique(ggseg::aseg$data$label))
+
+# (Optional) flip sign to match your CT convention:
+vol_map <- vol_map %>% mutate(tstat = -tstat)
+
+ggseg(atlas = ggseg::aseg,
+      .data = vol_map %>% select(label, tstat),  # or mutate(tstat = -tstat)
+      mapping = aes(fill = tstat),
+      colour = "black",
+      position = "stacked") +
+  theme_void() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                       midpoint = 0, limits = c(-8, 10)) +
+  labs(title = "Subcortical Volume — Cluster 5", fill = "T-stat")
+
+```
+
+EA t-map activation 
+```{r}
+# Read your attached CSV
+ea <- read.csv("../SNF_output1/effect_size/C_EA_C1_effectsize.csv")   # adjust path if needed
+```
+
+```{r}
+# 1) Load
+ea <- read.csv(".../SNF_output1/effect_size/C_EA_C5_effectsize.csv")
+
+# 2) Split: cortical (X17Networks_*) vs subcortical (everything else)
+ea_cort <- ea %>% filter(startsWith(label, "X17Networks_"))
+ea_sub  <- ea %>% filter(!startsWith(label, "X17Networks_"))
+
+# 3) Map cortical labels to your atlas’ exact format:
+#    "lh_17Networks_LH_<AREA>" / "rh_17Networks_RH_<AREA>"
+ea_cort_map <- ea_cort %>%
+  mutate(
+    hemi_upper = ifelse(str_detect(label, "_LH_"), "LH",
+                 ifelse(str_detect(label, "_RH_"), "RH", NA_character_)),
+    hemi_lower = tolower(hemi_upper),
+    area_raw   = str_remove(label, "^X17Networks_(LH|RH)_"),
+    atlas_lab  = paste0(hemi_lower, "_17Networks_", hemi_upper, "_", area_raw)
+  ) %>%
+  select(label = atlas_lab, tstat)
+
+# 4) Sanity check against schaefer17_200
+atlas <- schaefer17_200
+bad <- setdiff(unique(ea_cort_map$label), unique(atlas$data$label))
+if (length(bad)) {
+  message("Unmatched cortical labels:\n", paste(bad, collapse = "\n"))
+}
+
+# 5) Plot cortical EA (flip sign if you want red = higher in Cluster 1)
+flip_sign <- TRUE
+ea_cort_plot <- ea_cort_map %>%
+  mutate(tplot = if (flip_sign) -tstat else tstat)
+
+ggseg(atlas = atlas,
+      .data = ea_cort_plot,
+      mapping = aes(fill = tplot),
+      colour = "black",
+      position = "stacked") +
+  theme_void() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                       midpoint = 0, limits = c(-7, 5)) +
+  labs(title = "EA — Cortical tmap (Schaefer17-200), Cluster 5", fill = "T-stat")
+
+
+```
+
+Plotting the RS matrixes per group
+```{r}
+# Read your attached CSV
+rs <- read.csv("../SNF_output1/effect_size/C_RS_noGSR_FDR_C5_effectsize.csv")  # adjust path if needed
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# your data: rs (label, tstat)
+# make sure it's in the order you showed
+# 1) define the 8 diagonal labels in that order
+diag_labs <- c(
+  "RowMean_control",
+  "RowMean_default",
+  "RowMean_dorsal_attention",
+  "RowMean_limbic",
+  "RowMean_somatomotor",
+  "RowMean_subcortex",
+  "RowMean_ventral_attention",
+  "RowMean_visual"
+)
+
+# 2) split rs into diagonal and off-diagonal, keeping order
+rs_diag <- rs %>%
+  filter(label %in% diag_labs) %>%
+  arrange(factor(label, levels = diag_labs))
+
+rs_off <- rs %>%
+  filter(!label %in% diag_labs)
+# IMPORTANT: assume rs_off is already in the exact order you listed
+# (control-default, control-DA, ..., DMN-DA, ...)
+
+n <- length(diag_labs)
+mat <- matrix(NA_real_, nrow = n, ncol = n,
+              dimnames = list(diag_labs, diag_labs))
+
+# 3) fill diagonal
+for (i in seq_len(n)) {
+  lab_i <- diag_labs[i]
+  mat[i, i] <- rs_diag$tstat[rs_diag$label == lab_i]
+}
+
+# 4) fill upper triangle with the remaining 28 in order
+k <- 1
+for (i in 1:(n - 1)) {
+  for (j in (i + 1):n) {
+    lab_ij <- rs_off$label[k]
+    val_ij <- rs_off$tstat[k]
+    mat[i, j] <- val_ij
+    k <- k + 1
+  }
+}
+
+# 5) convert to long df and keep only upper triangle
+mat_df <- as.data.frame(mat) |>
+  tibble::rownames_to_column("row_lab") |>
+  tidyr::pivot_longer(
+    cols = -row_lab,
+    names_to = "col_lab",
+    values_to = "tstat"
+  ) |>
+  mutate(
+    row_lab = factor(row_lab, levels = diag_labs),
+    col_lab = factor(col_lab, levels = diag_labs),
+    i = as.numeric(row_lab),
+    j = as.numeric(col_lab)
+  ) |>
+  filter(i <= j)  # upper triangle (incl. diagonal)
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Flip sign
+mat_df <- mat_df %>%
+  mutate(tplot = -tstat)
+
+# Identify diagonal tiles
+mat_df <- mat_df %>%
+  mutate(is_diag = row_lab == col_lab)
+
+# Plot
+ggplot(mat_df, aes(x = col_lab, y = row_lab, fill = tplot)) +
+  # base heatmap
+  geom_tile(color = "black") +
+  
+  # highlight diagonal boxes with thick borders, no fill
+  geom_tile(
+    data = subset(mat_df, is_diag),
+    color = "black",
+    linewidth = 0.8,        # thickness of the diagonal box border
+    fill = NA
+  ) +
+  
+  # color scale
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0,
+    limits = c(-4.5, 3.5), # was originally -4, 5
+    na.value = "grey90"
+  ) +
+  
+  coord_fixed() +
+  labs(
+    title = "Resting-state network differences (t-stat)",
+    x = "",
+    y = "",
+    fill = "T-stat"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+
+
+```
+
+Visualizing the absolute connectivity for each cluster 
+```{r}
+
+#Pulling out resting state and group labels
+#rs_data <- compare_df3 %>%
+#  select(participant_id, groups, all_of(RS_cols))
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(RColorBrewer)
+
+# -----------------------------
+# 1) pick the cluster to plot
+# -----------------------------
+cluster_id <- "5"   # change to "1","2","3","4","5" as needed
+
+rs_clust <- rs_data %>%
+  filter(groups == cluster_id)
+
+# -----------------------------
+# 2) get the mean across subjects in that cluster
+# -----------------------------
+# get all connectivity cols (everything that starts with RowMean_)
+conn_cols <- grep("^RowMean_", names(rs_data), value = TRUE)
+
+rs_mean <- rs_data %>%
+  summarise(across(all_of(conn_cols), ~ mean(.x, na.rm = TRUE))) %>%
+  tidyr::pivot_longer(everything(), names_to = "label", values_to = "value")
+
+range(rs_mean$value)
+
+# now rs_mean looks like your old rs (label, tstat) but with "value"
+# -------------------------------------------------
+# 3) SAME ORDERING / MATRIX BUILD AS YOUR T-STAT CODE
+# -------------------------------------------------
+diag_labs <- c(
+  "RowMean_control",
+  "RowMean_default",
+  "RowMean_dorsal_attention",
+  "RowMean_limbic",
+  "RowMean_somatomotor",
+  "RowMean_subcortex",
+  "RowMean_ventral_attention",
+  "RowMean_visual"
+)
+
+# split into diagonal and off-diagonal
+rs_diag <- rs_mean %>%
+  filter(label %in% diag_labs) %>%
+  arrange(factor(label, levels = diag_labs))
+
+rs_off <- rs_mean %>%
+  filter(!label %in% diag_labs)
+# IMPORTANT: this assumes rs_data columns after the 8 diagonal ones
+# were already in the right order (which your example shows)
+
+n <- length(diag_labs)
+mat <- matrix(NA_real_, nrow = n, ncol = n,
+              dimnames = list(diag_labs, diag_labs))
+
+# fill diagonal
+for (i in seq_len(n)) {
+  lab_i <- diag_labs[i]
+  mat[i, i] <- rs_diag$value[rs_diag$label == lab_i]
+}
+
+# fill upper triangle
+k <- 1
+for (i in 1:(n - 1)) {
+  for (j in (i + 1):n) {
+    val_ij <- rs_off$value[k]
+    mat[i, j] <- val_ij
+    k <- k + 1
+  }
+}
+
+# long df, upper triangle only
+mat_df <- as.data.frame(mat) |>
+  rownames_to_column("row_lab") |>
+  pivot_longer(
+    cols = -row_lab,
+    names_to = "col_lab",
+    values_to = "conn"
+  ) |>
+  mutate(
+    row_lab = factor(row_lab, levels = diag_labs),
+    col_lab = factor(col_lab, levels = diag_labs),
+    i = as.numeric(row_lab),
+    j = as.numeric(col_lab)
+  ) |>
+  filter(i <= j)
+
+# add diagonal flag
+mat_df <- mat_df %>%
+  mutate(is_diag = row_lab == col_lab)
+
+# -----------------------------
+# 4) PLOT  SAME STYLE
+# -----------------------------
+ggplot(mat_df, aes(x = col_lab, y = row_lab, fill = conn)) +
+  geom_tile(color = "black") +
+  # thicker box on diagonal
+  geom_tile(
+    data = subset(mat_df, is_diag),
+    color = "black",
+    linewidth = 0.8,
+    fill = NA
+  ) +
+  # set limits if you want them fixed across clusters
+  # e.g. connectivity often ~0 to 1, but yours looks ~00.8
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0.00,          # you can change this to the global mean if you prefer
+    limits = c(0, 1), # <-- adjust to your connectivity range or drop this line
+    na.value = "grey90"
+  ) +
+  coord_fixed() +
+  labs(
+    #title = paste("Cluster", cluster_id, " mean RS connectivity"),
+    title = paste("Reference mean RS connectivity"),
+    x = "",
+    y = "",
+    fill = "Mean conn"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+# Define a custom "Reds" gradient that starts with white
+reds_palette <- brewer.pal(9, "Reds")  # 9-step Reds palette
+reds_with_white <- c("white", reds_palette)  # prepend white to make the low end lighter
+
+ggplot(mat_df, aes(x = col_lab, y = row_lab, fill = conn)) +
+  geom_tile(color = "black") +
+  
+  # highlight diagonal
+  geom_tile(
+    data = subset(mat_df, is_diag),
+    color = "black",
+    linewidth = 0.8,
+    fill = NA
+  ) +
+  
+  # custom white → dark red scale
+  scale_fill_gradientn(
+    colors = reds_with_white,
+    limits = c(0.10, 0.65),      # adjust to your connectivity range
+    na.value = "grey90",
+    name = "Mean conn"
+  ) +
+  
+  coord_fixed() +
+  labs(
+    #title = paste("Cluster", cluster_id, " mean RS connectivity"),
+    title = paste("Reference mean RS connectivity"),
+    x = "",
+    y = ""
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+```
+
+Computing the FDR corrected values 
+```{r}
+compute_tstats <- function(ref_df, target_df) {
+  stopifnot(identical(colnames(ref_df), colnames(target_df)))
+  cols <- colnames(ref_df)
+  
+  out <- lapply(cols, function(col) {
+    tt <- t.test(ref_df[[col]], target_df[[col]])  # Welch two-sample
+    data.frame(
+      label   = col,
+      tstat   = unname(tt$statistic),
+      pvalue  = tt$p.value
+    )
+  })
+  
+  out_df <- dplyr::bind_rows(out)
+  # add FDR across all tests for this cluster
+  out_df$pfdr <- p.adjust(out_df$pvalue, method = "fdr")
+  out_df
+}
+
+run_for_all_clusters <- function(df, group_col = "groups", cols, out_prefix) {
+  for (k in sort(unique(df[[group_col]]))) {
+    target <- df %>%
+      dplyr::filter(.data[[group_col]] == k) %>%
+      dplyr::select(all_of(cols))
+    
+    ref <- df %>%
+      dplyr::filter(.data[[group_col]] != k) %>%
+      dplyr::select(all_of(cols))
+    
+    eff <- compute_tstats(ref, target)
+    
+    out <- sprintf("%s_C%s_effectsize.csv", out_prefix, k)
+    write.csv(eff, out, row.names = FALSE)
+  }
+}
+
+```
+

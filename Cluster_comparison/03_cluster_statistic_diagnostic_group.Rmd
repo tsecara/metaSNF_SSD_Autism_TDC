@@ -1,0 +1,1764 @@
+---
+title: "cluster_statisitic1_diagnostic_groups.Rmd"
+author: "Maria T Secara"
+date: "2025-11-17"
+output: html_document
+---
+
+```{r}
+#Load in the required libraries 
+#install.packages("heplots")
+#install.packages("effectsize")   
+library(heplots)
+library(ggsignif)
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(tibble)
+library(effectsize)
+
+```
+
+Loading in Data
+```{r}
+#Cluster statistics. Comparing features between clusters k=48, alpha=0.6
+compare_df2 <- read.csv(".../SNF_output1/full_RESULTS_5_clust_k48_0.6.csv")
+compare_df2$groups <- as.factor(compare_df2$groups)
+compare_df2$group <- as.factor(compare_df2$group)
+
+#Loading in IQ data
+iq<- read.csv(".../IQ/combined_demo_IQ_final.csv")
+colnames(iq)[1] <- "participant_id"
+iq_df <- iq[, c("participant_id", "iq")]
+compare_df2 <- inner_join(compare_df2, iq_df, by = "participant_id")
+
+#Characterizing group membership across clusters and diagnosis 
+table(compare_df2$groups, compare_df2$group)
+```
+
+########### Assessing Statistical Differences Across Input Features used in SNF ################### 
+
+1. Social Cognition 
+2. Cortical Thickness 
+3. Subcortical Volume
+4. Cortical Surface Area 
+5. EA Task Regional Activation 
+
+
+1. Social cogntion 
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(tasit2_psar ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$tasit2_psar, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.035, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = tasit2_psar, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of TASIT2 Paradoxical Sarcasm Score by Diagonsis",
+       x = "Diagnostic group",
+       y = "TASIT2 Paradoxical Sarcasm Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(tasit3_sar ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$tasit3_sar, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.035, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = tasit3_sar, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of TASIT3 Sarcasm Score by Diagnosis",
+       x = "Diagnostic group",
+       y = "TASIT3 Sarcasm Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(rmet_total ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$rmet_total, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.035, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = rmet_total, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of RMET Total Score by Diagonsis",
+       x = "Diagnostic group",
+       y = "RMET Total Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(tasit3_lies ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$tasit3_lies, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.035, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = tasit3_lies, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of TASIT3 Lies Score by Diagnosis",
+       x = "Diagnostic group",
+       y = "TASIT3 Lies Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+
+
+```
+
+2. Cortical Thickness
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(L_rostralmiddlefrontal_thickavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$L_rostralmiddlefrontal_thickavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.02, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = L_rostralmiddlefrontal_thickavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Rostral Middle Frontal CT by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Rostral Middle Frontal CT") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(L_superiorparietal_thickavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$L_superiorparietal_thickavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.04, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = L_superiorparietal_thickavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Superior Parietal CT by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Superior Parietal CT") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(R_superiorfrontal_thickavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$R_superiorfrontal_thickavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.02, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = R_superiorfrontal_thickavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Right Superior Frontal CT by Diagnosis",
+       x = "Diagnostic group",
+       y = "Right Superior Frontal CT") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+
+3. Subcortical Volume 
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(Lhippo_vol ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$Lhippo_vol, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = Lhippo_vol, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Hippocampus Volume by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Hippocampus Volume") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(Lpal_vol ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$Lpal_vol, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = Lpal_vol, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Pallidum Vol Volume by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Pallidum Vol Volume") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(Rhippo_vol ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$Rhippo_vol, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = Rhippo_vol, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Right Hippocampus Volume by Diagnosis",
+       x = "Diagnostic group",
+       y = "Right Hippocampus Volume") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+
+4. Cortical Surface Area 
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(L_superiortemporal_surfavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$L_superiortemporal_surfavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = L_superiortemporal_surfavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Superior Temporal SA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Superior Temporal SA") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(R_middletemporal_surfavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$R_middletemporal_surfavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = R_middletemporal_surfavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Right Middle Temporal SA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Right Middle Temporal SA") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(L_precentral_surfavg ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$L_precentral_surfavg, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = L_precentral_surfavg, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Precentral SA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Precentral SA") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+
+5. EA Task  
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(X17Networks_LH_ContA_IPS_2 ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$X17Networks_LH_ContA_IPS_2, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = X17Networks_LH_ContA_IPS_2, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Hemisphere ContA IPS 2 EA t-map by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Hemisphere ContA IPS 2 EA t-map") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(X17Networks_LH_SalVentAttnB_PFCl_1 ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$X17Networks_LH_SalVentAttnB_PFCl_1, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = X17Networks_LH_SalVentAttnB_PFCl_1, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left Hemisphere SalVentAttnB PFCl 1 EA t-map by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left Hemisphere SalVentAttnB PFCl 1 EA t-map") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(aPUT.rh ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$aPUT.rh, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = aPUT.rh, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Right Anterior Putamen EA t-map by Diagnosis",
+       x = "Diagnostic group",
+       y = "Right Anterior Putamen EA t-map") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+
+########### Assessing Statistical Differences Across Held-out Features for Cluster Validation ################### 
+
+1. Mentalizing 
+2. Social Functioning (BSFS Total Score)
+3. Neurocognition 
+4. Resting State Network Differences 
+5. Fractional Anisotropy (FA)
+6. Mean Diffusivity (MD)
+
+1. Mentalizing 
+```{r}
+#Now again for Mentalizing  
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(mentalizing ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1, partial = TRUE)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$mentalizing, na.rm = TRUE)
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.15, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = mentalizing, fill = group)) +
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Mentalizing Score by Diagnosis",
+       x = "Diagnostic group",
+       y = "Mentalizing Score") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar
+```
+
+2. BSFS 
+```{r}
+#Now again for BSFS 
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(bsfs_total ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1, partial = TRUE)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$bsfs_total, na.rm = TRUE)
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.035, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = bsfs_total, fill = group)) +
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of BSFS Total Score by Diagnosis",
+       x = "Diangostic group",
+       y = "BSFS Total Score") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar
+```
+
+3. Neurocogntion 
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(mccb_comp ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$mccb_comp, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.04, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = mccb_comp, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of MCCB Composite Score by Diagnostic Group",
+       x = "Diagnostic group",
+       y = "MCCB Composite Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(mccb_vislearn ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$mccb_vislearn, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.04, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = mccb_vislearn, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of MCCB Visual Learning Score by Diagnosis",
+       x = "Diagnostic group",
+       y = "MCCB Visual Learning Score") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(mccb_pspeed ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$mccb_pspeed, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.04, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = mccb_pspeed, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of MCCB Processing Speed by Diagnosis",
+       x = "Diagnostic group",
+       y = " MCCB Processing Speed") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+4. Resting State network differences
+```{r}
+
+compare_df3 <- read.csv("/projects/tsecara/metaSNF/SNF/full_sample_no_FA_MD/final_output/full_RESULTS_5_clust_k48_0.6.csv")
+compare_df3$groups <- as.factor(compare_df3$groups)
+compare_df3$group <- as.factor(compare_df3$group)
+RS_anal <- read.csv("/projects/tsecara/metaSNF/data/combat_data/combat_data3/RS_noGSR.csv")
+RS_anal <- RS_anal[,-1]
+compare_df3 <- inner_join(compare_df3, RS_anal, by = "participant_id")
+
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(RowMean_SOM_visual ~ group, data = compare_df3)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df3$RowMean_SOM_visual, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.03, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df3, aes(x = group, y = RowMean_SOM_visual, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of SOM to Visual Network (RS) by Diagnosis",
+       x = "Diagnostic group",
+       y = "SOM to Visual Network Connectivity") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(RowMean_DMN_visual ~ group, data = compare_df3)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df3$RowMean_DMN_visual, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df3, aes(x = group, y = RowMean_DMN_visual, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of DMN to Visual Network Connectivity (RS) by Diagnosis",
+       x = "Diagnostic group",
+       y = " DMN to Visual Network Connectivity") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(RowMean_SUB_visual ~ group, data = compare_df3)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df3$RowMean_SUB_visual, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.1, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df3, aes(x = group, y = RowMean_SUB_visual, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of SUB to Visual Network (RS) by Diagnosis",
+       x = "Diagnostic group",
+       y = "SUB to Visual Network Connectivity") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+5. FA Comparisons
+```{r}
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(FX_FA ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$FX_FA, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.08, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = FX_FA, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Fornix FA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Fornix FA") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(PLIC.R_FA ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$PLIC.R_FA, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.03, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = PLIC.R_FA, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left PLIC FA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left PTR FA") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+#p + geom_signif(comparisons = comparisons_sig,
+#                annotations = signif_labels,
+#                y_position = y_positions,
+#                tip_length = 0.01,
+#                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(CP.R_FA ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$CP.R_FA, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.03, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = CP.R_FA, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Right Cerebral Peduncle FA by Diagnosis",
+       x = "Diagnostic group",
+       y = "Right CP FA") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+#p + geom_signif(comparisons = comparisons_sig,
+#                annotations = signif_labels,
+#                y_position = y_positions,
+#                tip_length = 0.01,
+#                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+```
+
+6. MD Comparisons 
+```{r}
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(FX_MD ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$FX_MD, na.rm = TRUE)
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.06, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = FX_MD, fill = group)) +
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Fornix MD by Diagnosis",
+       x = "Diangostic group",
+       y = "Fornix MD") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+#p + geom_signif(comparisons = comparisons_sig,
+#                annotations = signif_labels,
+#               y_position = y_positions,
+#                tip_length = 0.01,
+#                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(UNC.L_MD ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+eta_squared(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$UNC.L_MD, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.02, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = UNC.L_MD, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left UNC MD by Diagnosis",
+       x = "Diagnostic group",
+       y = "Left UNC MD") +
+  theme_minimal()
+p
+# Add Tukey significance bars
+#p + geom_signif(comparisons = comparisons_sig,
+#                annotations = signif_labels,
+#                y_position = y_positions,
+#                tip_length = 0.01,
+#                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+###############################################################################################################################################
+
+# -------------------------
+# 1. ANOVA + TukeyHSD
+# -------------------------
+model1 <- aov(RLIC.L_MD ~ group, data = compare_df2)
+summary(model1)
+car::Anova(model1)
+TukeyHSD(model1)
+
+tukey_res <- TukeyHSD(model1, "group")$group %>%
+  as.data.frame() %>%
+  rownames_to_column("contrast")
+
+# -------------------------
+# 2. Prepare comparisons
+# -------------------------
+# Split contrasts (e.g., "2-1") into list c("2","1")
+comparisons <- strsplit(tukey_res$contrast, "-")
+
+# Keep only significant comparisons
+tukey_sig <- tukey_res %>% filter(`p adj` < 0.05)
+comparisons_sig <- strsplit(tukey_sig$contrast, "-")
+
+# Significance symbols
+signif_labels <- ifelse(tukey_sig$`p adj` < 0.001, "***",
+                   ifelse(tukey_sig$`p adj` < 0.01, "**",
+                   ifelse(tukey_sig$`p adj` < 0.05, "*", "ns")))
+
+# -------------------------
+# 3. Assign y-positions
+# -------------------------
+y_max <- max(compare_df2$RLIC.L_MD, na.rm = TRUE) #### CHANGE HERE 
+y_positions <- seq(y_max * 1.05,
+                   by = y_max * 0.02, #increasing this will lead to great spaces betweem the bars 
+                   length.out = length(comparisons_sig))
+
+# -------------------------
+# 4. Plot
+# -------------------------
+p <- ggplot(compare_df2, aes(x = group, y = RLIC.L_MD, fill = group)) + #CHANGE HERE
+  geom_boxplot(color = "black") +
+   scale_fill_manual(values = c("gray25", "darkgrey", "white")) +
+  labs(title = "Box Plot of Left RLIC MD by Diagnosis",
+       x = "Diangostic group",
+       y = "Left RLIC MD") +
+  theme_minimal()
+
+# Add Tukey significance bars
+p + geom_signif(comparisons = comparisons_sig,
+                annotations = signif_labels,
+                y_position = y_positions,
+                tip_length = 0.01,
+                vjust = 0.7) #increasing this value will make the stars closer to the bar 
+
+```
