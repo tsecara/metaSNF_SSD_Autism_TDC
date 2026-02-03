@@ -26,6 +26,23 @@ clinical_scog <- read.csv(".../scog_metaSNF_FINAL2.csv", header=TRUE)
 clinical_nc <- read.csv(".../ncog_metaSNF_FINAL2.csv", header=TRUE)
 EA <- read.csv(".../EA.csv", header=TRUE)
 
+#Applying feature reduction using mentalizing score
+#New ones 
+CT_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/CT_cor_filtered2.csv")
+SA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/SA_cor_filtered2.csv")
+VOL_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/VOL_cor_filtered2.csv")
+FA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/FA_cor_filtered2.csv")
+MD_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/MD_cor_filtered2.csv")
+EA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/EA_cor_filtered2.csv")
+
+#Removing features based on correlation with mentalizing score
+CT <- CT[, c("participant_id", CT_weight$feature), drop = FALSE]
+SA <- SA[, c("participant_id", SA_weight$feature), drop = FALSE]
+VOL <- VOL[, c("participant_id", VOL_weight$feature), drop = FALSE]
+FA <- FA[, c("participant_id", FA_weight$feature), drop = FALSE]
+MD <- MD[, c("participant_id", MD_weight$feature), drop = FALSE]
+EA <- EA[, c("participant_id", EA_weight$feature), drop = FALSE]
+
 #### Putting everything into a list will help get quicker summaries: 
 study_data <- list(
   CT,
