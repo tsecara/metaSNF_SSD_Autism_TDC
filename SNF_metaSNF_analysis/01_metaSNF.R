@@ -28,12 +28,12 @@ EA <- read.csv(".../EA.csv", header=TRUE)
 
 #Applying feature reduction using mentalizing score
 #New ones 
-CT_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/CT_cor_filtered2.csv")
-SA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/SA_cor_filtered2.csv")
-VOL_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/VOL_cor_filtered2.csv")
-FA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/FA_cor_filtered2.csv")
-MD_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/MD_cor_filtered2.csv")
-EA_weight <- read.csv("/projects/tsecara/metaSNF/data/weights/correlation_threshold/EA_cor_filtered2.csv")
+CT_weight <- read.csv(".../weights/correlation_threshold/CT_cor_filtered2.csv")
+SA_weight <- read.csv(".../weights/correlation_threshold/SA_cor_filtered2.csv")
+VOL_weight <- read.csv(".../weights/correlation_threshold/VOL_cor_filtered2.csv")
+FA_weight <- read.csv(".../weights/correlation_threshold/FA_cor_filtered2.csv")
+MD_weight <- read.csv(".../weights/correlation_threshold/MD_cor_filtered2.csv")
+EA_weight <- read.csv(".../weights/correlation_threshold/EA_cor_filtered2.csv")
 
 #Removing features based on correlation with mentalizing score
 CT <- CT[, c("participant_id", CT_weight$feature), drop = FALSE]
